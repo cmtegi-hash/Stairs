@@ -76,20 +76,95 @@ if tab_active == "📝 REGISTRO":
         p_act = st.session_state.current_f
         max_f = st.session_state.limit_f
 
-        # --- DETECTAR FIN ---
-        is_end = False
+        # --- DETECTAR EXTREMO (SIN BLOQUEAR FORM) ---
+        is_edge = False
         if st.session_state.dir == "UP":
             if str(p_act) == str(max_f) or p_act == "Roof":
-                is_end = True
+                is_edge = True
         else:
             if str(p_act) == "1" or p_act == "Basement":
-                is_end = True
+                is_edge = True
 
-        # --- SI ES FINAL ---
-        if is_end:
+        # --- SUGERENCIA DESTINO ---
+        sug_dest = ""
+        try:
+            v_num = int(p_act)
+            if st.session_state.dir == "UP":
+                sug_dest = str(v_num + 1) if v_num < max_f else "Roof"
+            else:
+                sug_dest = str(v_num - 1) if v_num > 1 else "Basement"
+        except:
+            if p_act == "Basement": sug_dest = "1"
+            elif p_act == "Roof": sug_dest = str(max_f)
+
+        e_idx = st.session_state.edit_idx
+        v = st.session_state.all_data[e_idx] if e_idx is not None else {
+            "steps": 0, "w1": 0, "l1": 0, "w2": 0, "l2": 0
+        }
+
+        t_orig, t_dest = (v["piso"].split(" a ") if e_idx is not None else (p_act, sug_dest))
+
+        # ======================================================
+        # FORM SIEMPRE ACTIVO
+        # ======================================================
+        with st.form("f_reg", clear_on_submit=True):
+            c1, c2 = st.columns(2)
+            f_from = c1.text_input("De:", t_orig)
+            f_to = c2.text_input("A:", t_dest)
+
+            steps_txt = st.text_input("Steps:", value="" if v["steps"] == 0 else str(v["steps"]))
+
+            st.write("Landings (W1 L1 | W2 L2)")
+            ca, cb, cc, cd = st.columns(4)
+
+            w1_txt = ca.text_input("W1", value="" if v["w1"] == 0 else str(v["w1"]), label_visibility="collapsed")
+            l1_txt = cb.text_input("L1", value="" if v["l1"] == 0 else str(v["l1"]), label_visibility="collapsed")
+            w2_txt = cc.text_input("W2", value="" if v["w2"] == 0 else str(v["w2"]), label_visibility="collapsed")
+            l2_txt = cd.text_input("L2", value="" if v["l2"] == 0 else str(v["l2"]), label_visibility="collapsed")
+
+            st.markdown('<div class="btn-save">', unsafe_allow_html=True)
+
+            if st.form_submit_button("✅ GUARDAR TRAMO"):
+
+                def to_int(x):
+                    try: return int(x)
+                    except: return 0
+
+                def to_float(x):
+                    try: return float(x)
+                    except: return 0.0
+
+                s = to_int(steps_txt)
+                w1, l1 = to_float(w1_txt), to_float(l1_txt)
+                w2, l2 = to_float(w2_txt), to_float(l2_txt)
+
+                area = (w1 * l1) + (w2 * l2)
+
+                nuevo = {
+                    "stair": st.session_state.st_id,
+                    "piso": f"{f_from} a {f_to}",
+                    "steps": s,
+                    "area": area,
+                    "w1": w1, "l1": l1,
+                    "w2": w2, "l2": l2
+                }
+
+                if e_idx is not None:
+                    st.session_state.all_data[e_idx] = nuevo
+                    st.session_state.edit_idx = None
+                else:
+                    st.session_state.all_data.append(nuevo)
+                    st.session_state.current_f = f_to
+
+                st.rerun()
+
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        # ======================================================
+        # BOTONES SOLO COMO OPCIÓN EXTRA
+        # ======================================================
+        if is_edge:
             st.divider()
-            st.markdown("### ✅ Recorrido completo")
-
             c1, c2 = st.columns(2)
 
             with c1:
@@ -102,80 +177,6 @@ if tab_active == "📝 REGISTRO":
                 if st.button("📊 Finalizar"):
                     st.session_state.tab_select = 1
                     st.rerun()
-
-        else:
-            # --- SUGERENCIA DESTINO ---
-            sug_dest = ""
-            try:
-                v_num = int(p_act)
-                if st.session_state.dir == "UP":
-                    sug_dest = str(v_num + 1) if v_num < max_f else "Roof"
-                else:
-                    sug_dest = str(v_num - 1) if v_num > 1 else "Basement"
-            except:
-                if p_act == "Basement": sug_dest = "1"
-                elif p_act == "Roof": sug_dest = str(max_f)
-
-            e_idx = st.session_state.edit_idx
-            v = st.session_state.all_data[e_idx] if e_idx is not None else {
-                "steps": 0, "w1": 0, "l1": 0, "w2": 0, "l2": 0
-            }
-
-            t_orig, t_dest = (v["piso"].split(" a ") if e_idx is not None else (p_act, sug_dest))
-
-            # --- FORM ---
-            with st.form("f_reg", clear_on_submit=True):
-                c1, c2 = st.columns(2)
-                f_from = c1.text_input("De:", t_orig)
-                f_to = c2.text_input("A:", t_dest)
-
-                steps_txt = st.text_input("Steps:", value="" if v["steps"] == 0 else str(v["steps"]))
-
-                st.write("Landings (W1 L1 | W2 L2)")
-                ca, cb, cc, cd = st.columns(4)
-
-                w1_txt = ca.text_input("W1", value="" if v["w1"] == 0 else str(v["w1"]), label_visibility="collapsed")
-                l1_txt = cb.text_input("L1", value="" if v["l1"] == 0 else str(v["l1"]), label_visibility="collapsed")
-                w2_txt = cc.text_input("W2", value="" if v["w2"] == 0 else str(v["w2"]), label_visibility="collapsed")
-                l2_txt = cd.text_input("L2", value="" if v["l2"] == 0 else str(v["l2"]), label_visibility="collapsed")
-
-                st.markdown('<div class="btn-save">', unsafe_allow_html=True)
-
-                if st.form_submit_button("✅ GUARDAR TRAMO"):
-
-                    def to_int(x):
-                        try: return int(x)
-                        except: return 0
-
-                    def to_float(x):
-                        try: return float(x)
-                        except: return 0.0
-
-                    s = to_int(steps_txt)
-                    w1, l1 = to_float(w1_txt), to_float(l1_txt)
-                    w2, l2 = to_float(w2_txt), to_float(l2_txt)
-
-                    area = (w1 * l1) + (w2 * l2)
-
-                    nuevo = {
-                        "stair": st.session_state.st_id,
-                        "piso": f"{f_from} a {f_to}",
-                        "steps": s,
-                        "area": area,
-                        "w1": w1, "l1": l1,
-                        "w2": w2, "l2": l2
-                    }
-
-                    if e_idx is not None:
-                        st.session_state.all_data[e_idx] = nuevo
-                        st.session_state.edit_idx = None
-                    else:
-                        st.session_state.all_data.append(nuevo)
-                        st.session_state.current_f = f_to
-
-                    st.rerun()
-
-                st.markdown('</div>', unsafe_allow_html=True)
 
         if st.button("⬅️ Cambiar Piso"):
             st.session_state.current_f = None
