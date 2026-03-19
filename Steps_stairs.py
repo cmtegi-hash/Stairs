@@ -76,7 +76,7 @@ if tab_active == "📝 REGISTRO":
         p_act = st.session_state.current_f
         max_f = st.session_state.limit_f
 
-        # --- DETECTAR EXTREMO (SIN BLOQUEAR FORM) ---
+        # --- DETECTAR EXTREMO (NO BLOQUEA FORM) ---
         is_edge = False
         if st.session_state.dir == "UP":
             if str(p_act) == str(max_f) or p_act == "Roof":
@@ -104,9 +104,7 @@ if tab_active == "📝 REGISTRO":
 
         t_orig, t_dest = (v["piso"].split(" a ") if e_idx is not None else (p_act, sug_dest))
 
-        # ======================================================
-        # FORM SIEMPRE ACTIVO
-        # ======================================================
+        # --- FORM ---
         with st.form("f_reg", clear_on_submit=True):
             c1, c2 = st.columns(2)
             f_from = c1.text_input("De:", t_orig)
@@ -160,41 +158,57 @@ if tab_active == "📝 REGISTRO":
 
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # ======================================================
-        # BOTONES SOLO COMO OPCIÓN EXTRA
-        # ======================================================
+        # --- BOTONES EXTRA SOLO EN EXTREMO ---
         if is_edge:
             st.divider()
             c1, c2 = st.columns(2)
 
-            with c1:
-                if st.button("🔄 Nuevo Bloque"):
-                    st.session_state.current_f = None
-                    st.session_state.edit_idx = None
-                    st.rerun()
+            if c1.button("🔄 Nuevo Bloque"):
+                st.session_state.current_f = None
+                st.session_state.edit_idx = None
+                st.rerun()
 
-            with c2:
-                if st.button("📊 Finalizar"):
-                    st.session_state.tab_select = 1
-                    st.rerun()
+            if c2.button("📊 Finalizar"):
+                st.session_state.tab_select = 1
+                st.rerun()
 
         if st.button("⬅️ Cambiar Piso"):
             st.session_state.current_f = None
             st.rerun()
 
-    # --- LISTADO ---
+    # ======================================================
+    # LISTADO AGRUPADO
+    # ======================================================
     if st.session_state.all_data:
         st.divider()
-        for i, t in enumerate(reversed(st.session_state.all_data)):
-            ridx = len(st.session_state.all_data) - 1 - i
-            ci, ce, cd = st.columns([0.7, 0.15, 0.15])
-            ci.write(f"**{t['piso']}**: {int(t['steps'])}st | {t['area']:.1f}sf")
-            if ce.button("✏️", key=f"e{ridx}"):
-                st.session_state.edit_idx = ridx
-                st.rerun()
-            if cd.button("X", key=f"d{ridx}"):
-                st.session_state.all_data.pop(ridx)
-                st.rerun()
+
+        stairs = sorted(set(x['stair'] for x in st.session_state.all_data))
+
+        for esc in stairs:
+            is_active = esc == st.session_state.st_id
+
+            st.markdown(
+                f"### {'🟢' if is_active else '⚪'} {esc}" +
+                (" (ACTIVA)" if is_active else "")
+            )
+
+            tramos = [x for x in st.session_state.all_data if x['stair'] == esc]
+
+            for t in reversed(tramos):
+                ridx = st.session_state.all_data.index(t)
+
+                ci, ce, cd = st.columns([0.7, 0.15, 0.15])
+
+                ci.write(f"**{t['piso']}**: {int(t['steps'])}st | {t['area']:.1f}sf")
+
+                if ce.button("✏️", key=f"e{ridx}"):
+                    st.session_state.edit_idx = ridx
+                    st.session_state.st_id = esc
+                    st.rerun()
+
+                if cd.button("X", key=f"d{ridx}"):
+                    st.session_state.all_data.pop(ridx)
+                    st.rerun()
 
 # ======================================================
 # REPORTE
